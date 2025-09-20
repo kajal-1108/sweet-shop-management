@@ -1,0 +1,37 @@
+import { Request, Response, NextFunction } from "express";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET || "secretkey";
+
+export interface AuthRequest extends Request {
+  user?: { id: string; role: string };
+}
+
+// Protect middleware (requires token)
+export const protect = (req: AuthRequest, res: Response, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Not authorized, no token" });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as { id: string; role: string };
+    req.user = decoded;
+    next();
+  } catch (err) {
+    console.error("JWT verification failed:", err);
+    return res.status(401).json({ message: "Not authorized, token invalid" });
+  }
+};
+
+// Admin middleware (requires admin role)
+export const admin = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (req.user?.role === "admin") {
+    next();
+  } else {
+    return res.status(403).json({ message: "Admin access only" });
+  }
+};
